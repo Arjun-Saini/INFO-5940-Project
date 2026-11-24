@@ -37,6 +37,10 @@ app/
   ui/           # Streamlit pages: chat, schedule view, citations, deadline review, traces
   service.py    # handle_message(): single entry point the UI calls
   llm.py        # the only module that talks to Ollama
+  config.py     # Pydantic settings from .env; refuses to start on the placeholder password
+  errors.py     # top-level error handler and user-facing errors
+  embeddings.py # loads bge-small once and embeds text
+  models/       # shared Pydantic data models (no logic), so the solver and checker share data, not code
   router.py     # intent classification and clarification logic
   agents/       # planner.py, materials.py, shared agent loop
   tools/        # course search, prereqs, requirements, solver, materials, deadlines, export
