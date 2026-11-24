@@ -17,6 +17,7 @@ A student can ask for “two ML electives and no Friday classes,” compare sche
 |---|---|
 | Coding agent | [Team’s selected coding agent] |
 | Methodology | AI-Driven Development Lifecycle (AI-DLC) v1.0.1 |
+| LLM provider | Ollama, running locally (agent: `qwen3:8b`; router and query rewriting: `llama3.2:3b`) |
 | Final deadline | December 16 |
 | Status | Project proposal. Features, commands, and metrics below describe the planned implementation. |
 
@@ -28,7 +29,7 @@ An LLM helps interpret requests such as “nothing too heavy alongside my projec
 
 ## Planned LLM integration
 
-CoursePilot will use a router and two specialist agents. A model will route messages and rewrite search queries and another model will interpret planning requests, select tools, and compose answers. Both will run through the Claude API. We may use other coding agents such as Codex to help us writing the code, but this depends on how the project will proceed.
+CoursePilot will use a router and two specialist agents. Both run on free, open models served locally by Ollama, so the product needs no API key and no student data leaves the laptop. A small, fast model (`llama3.2:3b`) will route messages and rewrite search queries. A larger model with native tool calling (`qwen3:8b`) will interpret planning requests, select tools, and compose answers. Model names are configuration, not code, so a teammate with less memory can switch to `qwen3:4b`; we will confirm the final choices on development examples. Because these models are small, every tool argument and structured output is validated with Pydantic, and all hard rules (conflicts, credits, prerequisites, citation validity) are enforced in Python rather than trusted to the model.
 
 The **planner agent** will turn goals into constraints, call course search and eligibility tools, and ask a solver for candidate schedules. The **materials agent** will search uploaded documents, answer questions with citations, and prepare deadlines for review. The two agents will share structured session state. When a student keeps a schedule, its course IDs become available to the materials agent. This is how “What’s due this week in my courses?” will refer to the courses the student actually selected.
 
@@ -115,7 +116,7 @@ If a citation fails validation, the agent may retry once using the retrieved evi
 
 ### 8. Session memory
 
-Postgres will store messages, structured state, and a running summary under a session ID. Structured state will include the term, completed courses, hard constraints, preferences, candidate schedules, selected section IDs, and current course or assignment. Once a conversation exceeds roughly 20 turns, a Haiku-class model will summarize older dialogue. Each specialist will receive the summary, relevant state, and up to six recent turns.
+Postgres will store messages, structured state, and a running summary under a session ID. Structured state will include the term, completed courses, hard constraints, preferences, candidate schedules, selected section IDs, and current course or assignment. Once a conversation exceeds roughly 20 turns, the router model will summarize older dialogue. Each specialist will receive the summary, relevant state, and up to six recent turns.
 
 A refinement changes only what the student requested. **“Swap out the 8am”** will replace the referenced section and preserve other choices where feasible. **“No classes before 9am”** will add a schedule-wide constraint. We will use five scripted conversations to check the expected state after each turn, including a handoff from planning to course materials.
 
@@ -129,9 +130,9 @@ The Python `icalendar` library will generate the `.ics` file from confirmed even
 
 ### 10. Observability
 
-Each request will receive a `trace_id`. The trace will record its intent, selected agent, tool names, relevant arguments, durations, errors, model names, token use, estimated API cost, and total latency. For a wrong deadline answer, the team should be able to tell whether the router selected the wrong agent, the search targeted the wrong assignment, or the answer misstated a correctly retrieved date.
+Each request will receive a `trace_id`. The trace will record its intent, selected agent, tool names, relevant arguments, durations, errors, model names, token use, and total latency. For a wrong deadline answer, the team should be able to tell whether the router selected the wrong agent, the search targeted the wrong assignment, or the answer misstated a correctly retrieved date.
 
-A basic trace viewer will be available in Streamlit. If time permits, a developer page will summarize median and 95th-percentile latency, cost per request, and tool error rate. The evaluation runner will also save these measurements so the team can compare configurations before the dashboard is finished.
+A basic trace viewer will be available in Streamlit. If time permits, a developer page will summarize median and 95th-percentile latency, tokens per request, and tool error rate. The evaluation runner will also save these measurements so the team can compare configurations before the dashboard is finished.
 
 ### 11. Evaluation
 
@@ -149,17 +150,20 @@ For open-ended answers, a different model will score correctness, groundedness, 
 
 ### 12. Local hosting
 
-Docker Compose will run two services. `db` will run PostgreSQL with pgvector and a persistent volume. `app` will run Streamlit, the agents, the Python tools, and the local embedding model. The embedding model will be downloaded during the image build. A first-start seed script will load the cached roster and reviewed rules and can be rerun without duplicating records.
+Ollama will run natively on each laptop (so it can use the GPU or Apple Silicon) and serve the models at `localhost:11434`. Docker Compose will run two services. `db` will run PostgreSQL with pgvector and a persistent volume. `app` will run Streamlit, the agents, the Python tools, and the local embedding model, and will reach Ollama on the host at `host.docker.internal:11434`. The embedding model will be downloaded during the image build. A first-start seed script will load the cached roster and reviewed rules and can be rerun without duplicating records.
 
 The planned local setup is:
 
 ```bash
-cp .env.example .env
-# Set ANTHROPIC_API_KEY and DATABASE_URL in .env.
+# Install Ollama from https://ollama.com/download, then:
+ollama pull qwen3:8b
+ollama pull llama3.2:3b
+
+cp .env.example .env   # local settings only; no API keys
 docker compose up --build
 ```
 
-The app will be available at `http://localhost:8501`. The `.env` file will be excluded from version control. Claude API calls require an internet connection.
+The app will be available at `http://localhost:8501`. The `.env` file will be excluded from version control. Internet is needed only for setup (installing Ollama, pulling models, building the image); the demo itself runs offline. The 8B model needs roughly 8 GB of free memory.
 
 ## Timeline
 
@@ -168,13 +172,13 @@ The app will be available at `http://localhost:8501`. The `.env` file will be ex
 | Nov 22–24 | AI-DLC Inception, user stories, scope, tool schemas, Docker skeleton | Agree on the supported course set, hard-rule coverage, shared-state format, and one demo conversation. Each owner has sample inputs and outputs. |
 | Nov 25–Dec 1 | Build the first integrated workflow around a small set of real courses and one syllabus. Plan around Thanksgiving availability. | From one Streamlit session, generate a schedule, keep it, upload a syllabus for a selected course, and open a citation from an answer. |
 | Dec 2–7 | Expand reviewed course data, add refinements, deadline review and export, and evaluation cases | Complete a follow-up planning request and import a confirmed deadline into a calendar. If the earlier workflow is delayed, prioritize it ahead of dashboard work. |
-| Dec 8–12 | Run the full evaluation, compare retrieval with and without rewriting, and fix the largest failures | Produce a report with case counts, quality metrics, cost, latency, and representative failures. |
+| Dec 8–12 | Run the full evaluation, compare retrieval with and without rewriting, and fix the largest failures | Produce a report with case counts, quality metrics, token use, latency, and representative failures. |
 | Dec 13–15 | Buffer, final documents, and demo rehearsal | A teammate can start the app from the documented setup and complete the demo without manual database edits. |
 | Dec 16 | Submit | Final repository, README, AI-DLC artifacts, and evaluation report. |
 
 ## Collaboration plan
 
-We will meet one-three times a week. The main in-person meeting covers AI-DLC review gates, design decisions, and integration. We will regularly sync progress and and share Thanksgiving and finals availability in advance.
+We will meet one-three times a week. The main in-person meeting covers AI-DLC review gates, design decisions, and integration. We will regularly sync progress and share Thanksgiving and finals availability in advance.
 
 All code and documents will live in one GitHub repository, with tasks tracked in GitHub Projects. During Inception, one teammate will drive the coding agent while the team works through questions and approvals together. During Construction, each teammate will own the area in the Team table and contribute its evaluation examples. Each pull request will receive one teammate review. We will merge changes at least every two days and run the shared demo as soon as the first components connect.
 

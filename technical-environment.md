@@ -18,7 +18,7 @@ This document records the technical choices for CoursePilot, an AI agent that he
 | PDF parsing | PyMuPDF (`pymupdf`) | Text-based PDFs only. OCR is out of scope. |
 | Embeddings | `bge-small-en-v1.5` via `sentence-transformers`, running locally | Used for document-chunk and course-description search. Downloaded at image build time. |
 | Calendar export | `icalendar` | Generates `.ics` files from confirmed events only. |
-| HTTP client | `httpx` | For any other outbound HTTP, such as the Class Roster API if we use it instead of a cached export. |
+| HTTP client | `httpx` | Used only by the seed script, if we pull the term's data from the Class Roster API instead of a cached export. The running app makes no outbound HTTP calls. |
 | Lint and type check | `ruff` (lint and format), `mypy` | Run before every pull request. |
 
 Because the models are small and local, the app compensates in code rather than trusting the model:
@@ -26,6 +26,8 @@ Because the models are small and local, the app compensates in code rather than 
 - Every model-generated tool call and structured output is validated with Pydantic. On a validation failure the wrapper retries once with the error message, then returns a structured failure.
 - Context size is set explicitly on every call (`num_ctx`, default 8192 from `OLLAMA_NUM_CTX`), because Ollama's default context window can be too small for tool results and retrieved passages.
 - Temperature is 0 for routing, rewriting, and tool selection.
+- `qwen3` models produce a "thinking" trace by default. The wrapper turns thinking off for routing and tool selection to keep latency low, and the trace records whether it was on.
+- Small models can call a tool with the wrong arguments or skip a needed call. The agent loop treats a failed validation as a tool result the model can see and correct, and the eight-call budget still applies.
 - All hard rules (conflicts, credits, prerequisites, citation validity) are enforced by Python, never by the model.
 
 Layout of the application code (matches the README):
@@ -56,7 +58,7 @@ tests/          # unit and integration tests
 - **Docker Compose** runs two services:
   - `db`: PostgreSQL 16 with the `pgvector` extension and a named volume so data persists between runs.
   - `app`: the Streamlit app, the agents, the Python tools, the OR-Tools solver, and the local embedding model, in one container. It is served at `http://localhost:8501`, bound to `localhost` only.
-- The `app` container reaches Ollama on the host at `http://host.docker.internal:11434` (set as `OLLAMA_HOST`). Linux teammates add `extra_hosts: ["host.docker.internal:host-gateway"]` to the `app` service, and may need Ollama configured to accept connections from the Docker network.
+- The `app` container reaches Ollama on the host at `http://host.docker.internal:11434` (set as `OLLAMA_HOST`). This works out of the box on macOS and Windows (Docker Desktop). On Linux, the `app` service adds `extra_hosts: ["host.docker.internal:host-gateway"]`, and the Ollama server is started with `OLLAMA_HOST=172.17.0.1` (the Docker bridge address) so containers can reach it without exposing it to the wider network. Alternatively, Linux teammates can run the app natively with `uv run streamlit run app/ui/chat.py` against Ollama on `localhost`.
 - A seed script runs on first start. It loads the cached Class Roster data and the team-reviewed prerequisite and requirement rules. It is idempotent, so rerunning it never duplicates rows.
 - Class Roster data is cached in `data/` for one term. The app does not call Class Roster at runtime during the demo.
 - **Internet is needed only for setup** (installing Ollama, pulling models, building the Docker image). Once those are done, the demo needs no internet connection and sends no data to any third party.
