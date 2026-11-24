@@ -75,11 +75,11 @@ ollama pull llama3.2:3b
 
 # 2. Configure and start the app
 cp .env.example .env
-# .env sets OLLAMA_HOST, AGENT_MODEL, ROUTER_MODEL, OLLAMA_NUM_CTX, DATABASE_URL
+# .env sets the model runtime, ingestion settings, and a local database password (see below)
 docker compose up --build
 ```
 
-`.env.example` contains the following variables, and none of them is a secret:
+`.env.example` contains the following variables. The only sensitive value is the local database password: `.env.example` holds a placeholder, each teammate sets their own value in `.env` (never committed), Docker Compose passes it to the `db` service as `POSTGRES_PASSWORD`, and the app refuses to start while the placeholder is still set.
 
 ```text
 OLLAMA_HOST=http://host.docker.internal:11434
@@ -90,7 +90,11 @@ TERM=FA26
 SUBJECTS=CS,MATH
 TODAY_OVERRIDE=2026-10-14   # optional; unset means the real date in America/New_York
 REQUIREMENTS_DOC=data/requirements/cs-major-checklist.pdf
-DATABASE_URL=postgresql://coursepilot:coursepilot@db:5432/coursepilot
+TOPIC_TAGS=ml,ai,systems,theory,security,graphics,hci,pl,data
+DERIVE_CONFIDENCE_THRESHOLD=0.8
+TERM_START=                 # optional; overrides the week-one anchor derived at ingestion
+POSTGRES_PASSWORD=change-me  # placeholder; set your own value in .env
+DATABASE_URL=postgresql://coursepilot:${POSTGRES_PASSWORD}@db:5432/coursepilot
 ```
 
 ## 3. Test Framework
