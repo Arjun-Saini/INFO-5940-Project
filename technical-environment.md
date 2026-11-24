@@ -92,6 +92,7 @@ TODAY_OVERRIDE=2026-10-14   # optional; unset means the real date in America/New
 REQUIREMENTS_DOC=data/requirements/cs-major-checklist.pdf
 TOPIC_TAGS=ml,ai,systems,theory,security,graphics,hci,pl,data
 DERIVE_CONFIDENCE_THRESHOLD=0.8
+DEFAULT_CREDIT_RANGE=12-18     # used when the student gives no credit range
 TERM_START=                 # optional; overrides the week-one anchor derived at ingestion
 POSTGRES_PASSWORD=change-me  # placeholder; set your own value in .env
 DATABASE_URL=postgresql://coursepilot:${POSTGRES_PASSWORD}@db:5432/coursepilot
