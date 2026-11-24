@@ -23,7 +23,7 @@ A student can ask for “two ML electives and no Friday classes,” compare sche
 
 ## Problem and why we are using an LLM
 
-Cornell students make semester plans from information spread across Class Roster, degree checklists, and prerequisite descriptions. After choosing their courses, they face a similar problem across syllabi and assignment specs. A question as simple as “What’s due this week?” can require looking through several documents. Our first version focuses on Cornell undergraduate CS students, one upcoming term, and a set of courses and requirements the team can verify.
+Cornell students make semester plans from information spread across Class Roster, degree checklists, and prerequisite descriptions. After choosing their courses, they face a similar problem across syllabi and assignment specs. A question as simple as “What’s due this week?” can require looking through several documents. Our first version focuses on Cornell undergraduate CS students and one term (Fall 2026 as a stand-in), with every course rule derived automatically from the catalog so the same pipeline can be re-run for any future term.
 
 An LLM helps interpret requests such as “nothing too heavy alongside my project,” resolve follow-up references such as “the 8am,” and find passages that express a policy in different words. The student can inspect how CoursePilot interpreted a preference and change it. Python tools check meeting times, credits, encoded prerequisites, and requirement progress. For questions about uploaded materials, the agent cites the passage supporting its answer or tells the student which information it could not find.
 
@@ -37,11 +37,11 @@ The **planner agent** will turn goals into constraints, call course search and e
 
 By December 16, we plan to demonstrate three capabilities in one local Streamlit app:
 
-1. **Plan and refine a schedule.** For one term and a documented set of CS courses, return up to three schedules that satisfy the encoded hard constraints. Explain which preferences each schedule meets and flag any eligibility conditions that still require confirmation.
+1. **Plan and refine a schedule.** For one term (Fall 2026 as the demo stand-in) and the CS courses ingested automatically from Class Roster, return up to three schedules that satisfy the encoded hard constraints. Explain which preferences each schedule meets and flag any eligibility conditions that still require confirmation.
 2. **Ask questions about course materials.** Upload text-based syllabus and assignment PDFs, ask questions across turns, and open the source passage for each factual answer.
 3. **Review and export deadlines.** Show extracted deadlines alongside their sources, let the student correct or confirm them, and export approved events as an `.ics` file for import into Google Calendar.
 
-The four work areas share one agent-loop implementation, one database, and one evaluation runner. We will cache one term of Class Roster data and hand-review the prerequisite rules and CS requirement categories included in the demo. The README and UI will identify that coverage so students know which checks were performed.
+The four work areas share one agent-loop implementation, one database, and one evaluation runner. No part of the product is curated by hand: course data, prerequisite rules, topic tags, workload signals, and requirement categories are all derived automatically from the course catalog and an official requirements document (see section 7). Switching to a new term means changing one configuration value and re-running ingestion. The UI shows the source text behind every derived rule, so students can see what each check is based on.
 
 ## Planned techniques
 
@@ -108,9 +108,18 @@ If a citation fails validation, the agent may retry once using the retrieved evi
 
 ### 7. Deterministic rules and schedule solving
 
-**Course data and prerequisites.** PostgreSQL will store courses, enrollment components, meeting times, credits, prerequisite rules, and supported CS requirement categories. An LLM may draft a logical expression from prerequisite prose, and a teammate will review each rule in the supported course set. For “CS 2110 or equivalent, and MATH 1920,” the rule must preserve the equivalency branch. A student who completed MATH 1920 and reports an unverified equivalent to CS 2110 will receive `needs_confirmation`. The UI will show the condition alongside any affected schedule.
+**Automatic course ingestion.** CoursePilot needs no hand-curated course data, so it works for a new term, or another institution, by changing configuration and re-running ingestion. An ingestion script pulls the configured term and subjects from the Class Roster API through a data-source adapter (another institution's catalog would be a second adapter) and caches the export in `data/`. The agent model then processes every course once, using only its name, description, and prerequisite text:
 
-**Hard constraints and preferences.** OR-Tools CP-SAT will select compatible sections and enforce meeting-time conflicts, required component combinations, the student’s credit range, verified eligibility restrictions, and explicit exclusions. “I cannot attend on Fridays” excludes Friday sections. “I’d prefer Fridays free” ranks schedules with that property more highly. For “nothing too heavy,” the planner may propose a lower credit target and show that interpretation to the student. Requirement checks will show progress toward supported categories. If the student explicitly asks to satisfy one this term, the planner can enforce it.
+- **Prerequisite rules:** prerequisite prose becomes a rule tree (`and`, `or`, `course`, `course_or_equiv`) with a confidence score. For “CS 2110 or equivalent, and MATH 1920,” the rule must preserve the equivalency branch.
+- **Topic tags:** labels such as `ml`, `systems`, and `theory`, each with a confidence score and a one-line justification.
+- **Workload signal:** an estimate built from credits, components such as labs, and workload cues in the description (“project-intensive,” “weekly problem sets”).
+- **Requirement categories:** extracted the same way from an official requirements document supplied as input (for Cornell CS, the major checklist).
+
+Every output is validated with Pydantic, stored with its source text, and cached by a hash of its input, so re-running ingestion gives the same result. Low-confidence or unparseable output is never treated as verified: an uncertain prerequisite evaluates to `needs_confirmation`, never `met`, and an uncertain tag is labeled as uncertain in the UI. The student can always see the source text behind a rule or tag.
+
+**Course data and prerequisites.** PostgreSQL will store courses, enrollment components, meeting times, credits, and the derived rules, tags, workload signals, and requirement categories. A student who completed MATH 1920 and reports an unverified equivalent to CS 2110 will receive `needs_confirmation`. The UI will show the condition alongside any affected schedule.
+
+**Hard constraints and preferences.** OR-Tools CP-SAT will select compatible sections and enforce meeting-time conflicts, required component combinations, the student’s credit range, verified eligibility restrictions, and explicit exclusions. “I cannot attend on Fridays” excludes Friday sections. “I’d prefer Fridays free” ranks schedules with that property more highly. For “nothing too heavy,” the planner may propose a lower credit target and penalize courses with a high workload signal, and show that interpretation to the student. For “2 ML electives,” the planner lists the courses tagged `ml` in the interpretation panel; the student can add or remove courses, and the solver then enforces the constraint on that confirmed set. Requirement checks will show progress toward supported categories. If the student explicitly asks to satisfy one this term, the planner can enforce it.
 
 **Results.** The solver will return up to three distinct schedules when available. A separate checker will validate every displayed schedule against the encoded hard constraints. If none is feasible, the planner will explain the conflict it can establish and ask which constraint the student is willing to change. We will measure both rule violations and how often the planner returns a schedule on cases known to be feasible.
 
@@ -141,6 +150,8 @@ The planned command `python -m eval.run` will run versioned cases from `eval/` a
 | Capability | Planned cases | Measures |
 |---|---|---|
 | Planning | 15 hand-checked requests covering feasible, infeasible, and unresolved-eligibility cases | Zero encoded hard-rule violations. Report how many known-feasible requests produce a schedule and whether unresolved prerequisites are flagged. |
+| Prerequisite parsing | Hand-labeled rule trees for 30 courses, including “or equivalent,” corequisite, and permission-only wording | Target at least 85% of rules exactly correct. Every incorrect rule must fail safe: it may produce `needs_confirmation`, but never `met` for a student who does not satisfy the true rule. |
+| Topic tagging | Hand-labeled topic tags for 40 courses | Report precision and recall for each tag, with a target of at least 85% precision for `ml`. |
 | Routing | 50 labeled messages, including follow-ups | Target at least 90% intent accuracy. Report the confusion matrix and inspect unnecessary or missed clarifying questions. |
 | Retrieval and cited Q&A | 30 questions, including 25 answerable and 5 unanswerable | On answerable cases, target at least 85% top-five source hits and 90% correct source citations. Check answer support separately. Report correct abstentions out of five. |
 | Deadline extraction | Hand-labeled deadline lists for three syllabi | Target at least 90% precision and recall **before student corrections**. Check that export contains exactly the confirmed events. |
@@ -150,7 +161,7 @@ For open-ended answers, a different model will score correctness, groundedness, 
 
 ### 12. Local hosting
 
-Ollama will run natively on each laptop (so it can use the GPU or Apple Silicon) and serve the models at `localhost:11434`. Docker Compose will run two services. `db` will run PostgreSQL with pgvector and a persistent volume. `app` will run Streamlit, the agents, the Python tools, and the local embedding model, and will reach Ollama on the host at `host.docker.internal:11434`. The embedding model will be downloaded during the image build. A first-start seed script will load the cached roster and reviewed rules and can be rerun without duplicating records.
+Ollama will run natively on each laptop (so it can use the GPU or Apple Silicon) and serve the models at `localhost:11434`. Docker Compose will run two services. `db` will run PostgreSQL with pgvector and a persistent volume. `app` will run Streamlit, the agents, the Python tools, and the local embedding model, and will reach Ollama on the host at `host.docker.internal:11434`. The embedding model will be downloaded during the image build. An ingestion command runs once per term to pull the course catalog and derive rules, tags, and workload signals with the local model; a first-start seed script then loads those cached outputs and can be rerun without duplicating records.
 
 The planned local setup is:
 
@@ -159,7 +170,8 @@ The planned local setup is:
 ollama pull qwen3:8b
 ollama pull llama3.2:3b
 
-cp .env.example .env   # local settings only; no API keys
+cp .env.example .env   # local settings only (term, subjects, models); no API keys
+uv run python -m app.ingest   # once per term; needs internet and Ollama
 docker compose up --build
 ```
 
@@ -169,9 +181,9 @@ The app will be available at `http://localhost:8501`. The `.env` file will be ex
 
 | Dates | Milestone | Completion check |
 |---|---|---|
-| Nov 22–24 | AI-DLC Inception, user stories, scope, tool schemas, Docker skeleton | Agree on the supported course set, hard-rule coverage, shared-state format, and one demo conversation. Each owner has sample inputs and outputs. |
-| Nov 25–Dec 1 | Build the first integrated workflow around a small set of real courses and one syllabus. Plan around Thanksgiving availability. | From one Streamlit session, generate a schedule, keep it, upload a syllabus for a selected course, and open a citation from an answer. |
-| Dec 2–7 | Expand reviewed course data, add refinements, deadline review and export, and evaluation cases | Complete a follow-up planning request and import a confirmed deadline into a calendar. If the earlier workflow is delayed, prioritize it ahead of dashboard work. |
+| Nov 22–24 | AI-DLC Inception, user stories, scope, tool schemas, Docker skeleton | Agree on the term and subjects to ingest, the ingestion output formats, the shared-state format, and one demo conversation. Each owner has sample inputs and outputs. |
+| Nov 25–Dec 1 | Build the ingestion pipeline and the first integrated workflow around the ingested courses and one syllabus. Plan around Thanksgiving availability. | From one Streamlit session, generate a schedule, keep it, upload a syllabus for a selected course, and open a citation from an answer. |
+| Dec 2–7 | Ingest the full configured subjects, add refinements, deadline review and export, and evaluation cases (including prerequisite-parsing and tagging labels) | Complete a follow-up planning request and import a confirmed deadline into a calendar. If the earlier workflow is delayed, prioritize it ahead of dashboard work. |
 | Dec 8–12 | Run the full evaluation, compare retrieval with and without rewriting, and fix the largest failures | Produce a report with case counts, quality metrics, token use, latency, and representative failures. |
 | Dec 13–15 | Buffer, final documents, and demo rehearsal | A teammate can start the app from the documented setup and complete the demo without manual database edits. |
 | Dec 16 | Submit | Final repository, README, AI-DLC artifacts, and evaluation report. |
@@ -184,7 +196,7 @@ All code and documents will live in one GitHub repository, with tasks tracked in
 
 ## Future work
 
-Rubric-based feedback on drafts, long-term student profiles, MCP servers for the course and materials tools, broader degree-rule coverage, support for additional majors, a Next.js frontend, Canvas integration, and direct Google Calendar sync.
+Rubric-based feedback on drafts, long-term student profiles, MCP servers for the course and materials tools, catalog adapters for other institutions, requirement documents for additional majors, a Next.js frontend, Canvas integration, and direct Google Calendar sync.
 
 ## Planned repository layout
 
@@ -193,7 +205,7 @@ README.md                    # Project proposal and planned local setup
 docker-compose.yml           # Streamlit app and PostgreSQL services
 .env.example                 # Required environment variables
 app/                         # UI, router, agents, tools, session state, tracing
-data/                        # Cached roster, reviewed rules, coverage notes
+data/                        # Cached roster export and cached ingestion outputs
 eval/                        # Development examples, final cases, runner, reports
 vision.md                    # Project vision
 technical-environment.md     # Stack and environment decisions

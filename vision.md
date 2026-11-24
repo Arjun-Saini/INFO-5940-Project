@@ -4,7 +4,7 @@
 
 CoursePilot is an AI agent designed to help Cornell students plan and manage their semester. Students can make requests like "2 ML electives and no Friday classes", compare up to 3 valid schedules, and refine them through chat ("swap out the 8am"). Once a student finalizes their schedule, they can upload their syllabi and ask questions like "when is Homework 3 due?". CoursePilot answers with a citation the student can open to confirm the deadline themselves, then export it to their calendar.
 
-The agent's LLM interprets "fuzzy" goals, follow-up references, and differently worded policies. CoursePilot also includes deterministic Python tools for hard rules such as meeting-time conflicts, credits, prerequisites, and requirement progress. This way, its suggestions are personalized while the hard rules are still guaranteed to hold. The first version runs locally as a Streamlit application with open models served by Ollama, and covers one upcoming term and a documented, team-verified set of CS courses and requirements.
+The agent's LLM interprets "fuzzy" goals, follow-up references, and differently worded policies. CoursePilot also includes deterministic Python tools for hard rules such as meeting-time conflicts, credits, prerequisites, and requirement progress. Nothing in the product is curated by hand. CoursePilot derives prerequisite rules, topic tags (such as "ML"), workload signals, and requirement categories automatically from course names, descriptions, and an official requirements document, so it works for a new term, or another institution, by changing configuration and re-running ingestion. Anything it cannot derive confidently is shown as needing confirmation, never treated as satisfied. The first version runs locally as a Streamlit application with open models served by Ollama, and covers one term of Cornell CS courses (Fall 2026 as the demo stand-in).
 
 ## Problem Statement
 
@@ -61,22 +61,25 @@ A local Streamlit app with a PostgreSQL database, a router, and two specialized 
 
 ## MVP Features (In Scope)
 
-1. **Natural-language schedule planning:** parse goals into hard constraints and soft preferences, display that interpretation so the student can edit it, and return up to 3 distinct schedules.
-2. **Deterministic eligibility and constraint checks:** prerequisite checks return `met`, `unmet`, or `needs_confirmation` with the rule and reason. Requirement progress is shown for the supported CS categories. The solver enforces meeting-time conflicts, required component combinations (lecture, discussion, lab), credit range, verified eligibility, and explicit exclusions, and a separate checker re-validates every displayed schedule.
-3. **Chat refinement and infeasibility handling:** follow-ups change only what was requested ("swap out the 8am" changes only that section). When no schedule exists, the planner explains the conflict and asks which constraint to change.
-4. **Schedule selection and handoff:** the student keeps one schedule, and its course IDs become the course list for materials questions and multi-course queries.
-5. **Course material upload and cited Q&A:** upload text-based syllabus and assignment PDFs, ask questions across courses, resolve references like "it" from chat history, and get answers with citations that open to the document, section, page, and text. The agent says explicitly when it cannot verify an answer from the uploaded materials.
-6. **Multi-course deadline questions:** "What's due this week?" collects confirmed events for the selected courses and requested dates, and labels newly found dates as awaiting review.
-7. **Deadline review and `.ics` export:** an editable review table with original wording, interpreted date and time, source passage, and confirmation status. Handles relative dates, conflicting dates, and TBD items before export, and exports only confirmed events.
-8. **Intent routing with clarification:** messages route to the correct specialist agent, topic switches re-route mid-conversation, and the app asks clarifying questions when a request is ambiguous.
-9. **Session memory:** messages, structured state (term, completed courses, constraints, preferences, candidate and selected schedules, current course or assignment), and a running summary persist for the session, so long conversations keep their context.
-10. **Request tracing for the team:** every request has a trace (intent, agent, tools, arguments, durations, errors, model, tokens, latency) viewable in a Streamlit trace viewer, so the team can diagnose wrong answers.
+1. **Automatic course ingestion:** pull the configured term and subjects from the Class Roster API through a data-source adapter, and use the LLM to derive prerequisite rules, topic tags, workload signals, and requirement categories from course text and the official requirements document. Every output is validated, cached with its source text, and given a confidence; low-confidence output is flagged, never trusted. Changing the term requires only configuration and a re-run.
+2. **Natural-language schedule planning:** parse goals into hard constraints and soft preferences, display that interpretation so the student can edit it, and return up to 3 distinct schedules.
+3. **Deterministic eligibility and constraint checks:** prerequisite checks return `met`, `unmet`, or `needs_confirmation` with the derived rule, its source text, and the reason. Requirement progress is shown for the extracted CS categories. Topic constraints such as "2 ML electives" use the derived tags, and the student can adjust which courses count before solving. The solver enforces meeting-time conflicts, required component combinations (lecture, discussion, lab), credit range, verified eligibility, and explicit exclusions, and a separate checker re-validates every displayed schedule.
+4. **Chat refinement and infeasibility handling:** follow-ups change only what was requested ("swap out the 8am" changes only that section). When no schedule exists, the planner explains the conflict and asks which constraint to change.
+5. **Schedule selection and handoff:** the student keeps one schedule, and its course IDs become the course list for materials questions and multi-course queries.
+6. **Course material upload and cited Q&A:** upload text-based syllabus and assignment PDFs, ask questions across courses, resolve references like "it" from chat history, and get answers with citations that open to the document, section, page, and text. The agent says explicitly when it cannot verify an answer from the uploaded materials.
+7. **Multi-course deadline questions:** "What's due this week?" collects confirmed events for the selected courses and requested dates, and labels newly found dates as awaiting review.
+8. **Deadline review and `.ics` export:** an editable review table with original wording, interpreted date and time, source passage, and confirmation status. Handles relative dates, conflicting dates, and TBD items before export, and exports only confirmed events.
+9. **Intent routing with clarification:** messages route to the correct specialist agent, topic switches re-route mid-conversation, and the app asks clarifying questions when a request is ambiguous.
+10. **Session memory:** messages, structured state (term, completed courses, constraints, preferences, candidate and selected schedules, current course or assignment), and a running summary persist for the session, so long conversations keep their context.
+11. **Request tracing for the team:** every request has a trace (intent, agent, tools, arguments, durations, errors, model, tokens, latency) viewable in a Streamlit trace viewer, so the team can diagnose wrong answers.
 
 ## Out of Scope
 
 - Rubric-based feedback on draft submissions.
 - Long-term student profiles: state lasts for a session only.
-- Majors other than CS, and broader degree-rule coverage.
+- Majors other than CS (the design is portable, but only the CS requirements document is ingested and evaluated).
+- Catalog adapters for institutions other than Cornell.
+- Any hand-curated course data, tags, or rules.
 - More than one term, and live seat availability or waitlists.
 - Enrollment, add/drop, or Student Center integration.
 - Canvas integration.
@@ -92,6 +95,8 @@ A local Streamlit app with a PostgreSQL database, a router, and two specialized 
 Measured with the evaluation runner (`python -m eval.run`) on final test cases kept separate from development examples:
 
 - **Planning:** 15 hand-checked requests covering feasible, infeasible, and unresolved-eligibility cases. Zero hard-rule violations in any displayed schedule. Report how many known-feasible requests return a schedule, and whether unresolved prerequisites are flagged.
+- **Prerequisite parsing:** hand-labeled rule trees for 30 courses. At least 85% exactly correct, and every error fails safe (it may produce `needs_confirmation`, never a false `met`).
+- **Topic tagging:** hand-labeled tags for 40 courses. Precision and recall per tag, with at least 85% precision for `ml`.
 - **Routing:** 50 labeled messages, including follow-ups. At least 90% intent accuracy, with a confusion matrix and a review of unnecessary or missed clarifying questions.
 - **Retrieval and cited Q&A:** 30 questions (25 answerable, 5 unanswerable). At least 85% top-5 source hits and at least 90% correct source citations on answerable questions, with answer support checked separately. Report correct abstentions out of 5.
 - **Query rewriting:** report the change in retrieval success with rewriting on versus off, along with the added latency and tokens.
@@ -102,10 +107,10 @@ Reports include raw counts alongside percentages because the test sets are small
 
 ## Open Questions
 
-1. **Term and course set:** which term do we cache, and which CS courses go into the reviewed set for the demo?
-2. **Requirement categories:** which CS requirements do we encode (core, electives, practicum, technical electives, etc.), and from which official checklist version?
-3. **Class Roster access:** can we get meeting times, components, credits, and prerequisites for the chosen term through the Class Roster API, or do we need a cached export?
-4. **"Too heavy":** is a lower credit target enough to represent workload, or should a student be able to mark courses as heavy?
+1. **Term and subjects:** which term and which subjects (CS only, or also MATH and other prerequisite subjects) do we ingest for the demo?
+2. **Requirement categories:** which official CS checklist version do we ingest, and which of its categories (core, electives, practicum, technical electives, etc.) must the extraction handle for the demo?
+3. **Class Roster access:** does the Class Roster API return everything ingestion needs (meeting times, components, credits, descriptions, prerequisite text) for the chosen term?
+4. **"Too heavy":** how should the automatically derived workload signal be combined with the credit target, and how much should it weigh?
 5. **Week-one anchors:** where does the anchor date for relative deadlines (e.g., "Friday of Week 6") come from when the syllabus doesn't state it? The official term calendar by default, with a student override?
 6. **Completed-course entry:** without long-term profiles, how do students quickly enter completed courses each session?
 7. **Model selection:** are `qwen3:8b` (agent) and `llama3.2:3b` (router and rewriting) accurate enough on our development examples, and fast enough on every teammate's laptop? Does the planned 0.6 router confidence threshold improve routing with a small local model?

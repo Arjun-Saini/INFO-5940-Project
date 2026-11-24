@@ -18,7 +18,7 @@ This document records the technical choices for CoursePilot, an AI agent that he
 | PDF parsing | PyMuPDF (`pymupdf`) | Text-based PDFs only. OCR is out of scope. |
 | Embeddings | `bge-small-en-v1.5` via `sentence-transformers`, running locally | Used for document-chunk and course-description search. Downloaded at image build time. |
 | Calendar export | `icalendar` | Generates `.ics` files from confirmed events only. |
-| HTTP client | `httpx` | Used only by the seed script, if we pull the term's data from the Class Roster API instead of a cached export. The running app makes no outbound HTTP calls. |
+| HTTP client | `httpx` | Used only by the ingestion script to pull the configured term from the Class Roster API. The running app makes no outbound HTTP calls. |
 | Lint and type check | `ruff` (lint and format), `mypy` | Run before every pull request. |
 
 Because the models are small and local, the app compensates in code rather than trusting the model:
@@ -28,7 +28,7 @@ Because the models are small and local, the app compensates in code rather than 
 - Temperature is 0 for routing, rewriting, and tool selection.
 - `qwen3` models produce a "thinking" trace by default. The wrapper turns thinking off for routing and tool selection to keep latency low, and the trace records whether it was on.
 - Small models can call a tool with the wrong arguments or skip a needed call. The agent loop treats a failed validation as a tool result the model can see and correct, and the eight-call budget still applies.
-- All hard rules (conflicts, credits, prerequisites, citation validity) are enforced by Python, never by the model.
+- All hard rules (conflicts, credits, prerequisites, citation validity) are enforced by Python, never by the model. The model only derives the inputs to those rules (rule trees, tags, workload signals) during ingestion, and every derived item carries a confidence. Anything below the configured threshold, or anything that fails validation, is stored as uncertain and makes `check_prereqs` return `needs_confirmation` rather than `met`.
 
 Layout of the application code (matches the README):
 
@@ -40,10 +40,11 @@ app/
   router.py     # intent classification and clarification logic
   agents/       # planner.py, materials.py, shared agent loop
   tools/        # course search, prereqs, requirements, solver, materials, deadlines, export
+  ingest/       # sources/ (data-source adapters, Class Roster first), derive.py (LLM-derived rules, tags, workload, requirements), cache.py
   db/           # connection, migrations, repositories (SQL lives here only)
   state.py      # SessionState models and persistence
   tracing.py    # trace_id creation and trace recording
-data/           # cached roster export, reviewed prerequisite rules, coverage notes
+data/           # cached roster export and cached ingestion outputs (keyed by input hash)
 eval/           # development examples, final cases, runner, reports
 tests/          # unit and integration tests
 ```
@@ -59,9 +60,10 @@ tests/          # unit and integration tests
   - `db`: PostgreSQL 16 with the `pgvector` extension and a named volume so data persists between runs.
   - `app`: the Streamlit app, the agents, the Python tools, the OR-Tools solver, and the local embedding model, in one container. It is served at `http://localhost:8501`, bound to `localhost` only.
 - The `app` container reaches Ollama on the host at `http://host.docker.internal:11434` (set as `OLLAMA_HOST`). This works out of the box on macOS and Windows (Docker Desktop). On Linux, the `app` service adds `extra_hosts: ["host.docker.internal:host-gateway"]`, and the Ollama server is started with `OLLAMA_HOST=172.17.0.1` (the Docker bridge address) so containers can reach it without exposing it to the wider network. Alternatively, Linux teammates can run the app natively with `uv run streamlit run app/ui/chat.py` against Ollama on `localhost`.
-- A seed script runs on first start. It loads the cached Class Roster data and the team-reviewed prerequisite and requirement rules. It is idempotent, so rerunning it never duplicates rows.
-- Class Roster data is cached in `data/` for one term. The app does not call Class Roster at runtime during the demo.
-- **Internet is needed only for setup** (installing Ollama, pulling models, building the Docker image). Once those are done, the demo needs no internet connection and sends no data to any third party.
+- **Ingestion** (`uv run python -m app.ingest --term FA26 --subjects CS,MATH`) runs once per term, needs internet, and requires Ollama. It pulls the term from the Class Roster API through the `CourseSource` adapter, saves the raw export in `data/`, and derives prerequisite rules, topic tags, workload signals, and requirement categories with the agent model (temperature 0, Pydantic-validated, cached by a hash of the input text and model name). No step needs hand-curated data. Supporting another term or institution means changing `TERM` and `SUBJECTS` in `.env`, or adding a `CourseSource` adapter, and re-running ingestion.
+- A seed script runs on first start and loads the cached export and ingestion outputs into Postgres. It is idempotent, so rerunning it never duplicates rows.
+- The app does not call Class Roster at runtime during the demo.
+- **Internet is needed only for setup and ingestion** (installing Ollama, pulling models, building the Docker image, and running ingestion once per term). Once those are done, the demo needs no internet connection and sends no data to any third party.
 - **Hardware:** the 8B agent model needs roughly 8 GB of free memory. Teammates with less can use the 4B alternative.
 
 Setup:
@@ -84,6 +86,10 @@ OLLAMA_HOST=http://host.docker.internal:11434
 AGENT_MODEL=qwen3:8b
 ROUTER_MODEL=llama3.2:3b
 OLLAMA_NUM_CTX=8192
+TERM=FA26
+SUBJECTS=CS,MATH
+TODAY_OVERRIDE=2026-10-14   # optional; unset means the real date in America/New_York
+REQUIREMENTS_DOC=data/requirements/cs-major-checklist.pdf
 DATABASE_URL=postgresql://coursepilot:coursepilot@db:5432/coursepilot
 ```
 
@@ -251,7 +257,7 @@ if prompt := st.chat_input("Ask about schedules or your course materials"):
 
 ### 6.2 Typical function (deterministic tool)
 
-`check_prereqs` in `app/tools/prereqs.py` evaluates a reviewed prerequisite rule tree. It uses three-valued logic so that an unverified equivalent produces `needs_confirmation` instead of a guess.
+`check_prereqs` in `app/tools/prereqs.py` evaluates a prerequisite rule tree produced automatically during ingestion. It uses three-valued logic so that an unverified equivalent produces `needs_confirmation` instead of a guess.
 
 ```python
 # app/tools/prereqs.py
@@ -270,7 +276,7 @@ class PrereqStatus(str, Enum):
 
 
 class PrereqRule(BaseModel):
-    """A reviewed prerequisite expression. `course_or_equiv` preserves 'or equivalent' branches."""
+    """A prerequisite expression derived during ingestion. `course_or_equiv` preserves 'or equivalent' branches."""
     op: Literal["course", "course_or_equiv", "and", "or"]
     course: str | None = None
     children: list["PrereqRule"] = Field(default_factory=list)
