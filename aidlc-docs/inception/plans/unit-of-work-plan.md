@@ -18,12 +18,12 @@ CoursePilot is **one deployable application** (a single `app` container plus `db
 
 ## 2. Execution Checklist (Part 2: Generation)
 
-- [ ] **Step 1: Define units.** Write `unit-of-work.md`. For each unit, give its purpose, its components (IDs from `components.md`), owner(s), tiers, public interfaces it provides, and its "done" definition.
-- [ ] **Step 2: Code organization (greenfield).** Document in `unit-of-work.md` the directory layout, how each unit maps to `app/` paths, the `tests/` layout, the `eval/` suites per unit, and the branching and integration convention chosen in Q4.
-- [ ] **Step 3: Dependencies.** Write `unit-of-work-dependency.md` with a unit dependency matrix, the build order, the integration contracts between units (models, functions, fakes), and the points where units integrate. Check that there are no cycles and that the dependencies agree with rules R1–R12.
-- [ ] **Step 4: Story map.** Write `unit-of-work-story-map.md`, assigning every story (US-01–22, MS-01–03) to a primary unit, with any contributing units and the tier.
-- [ ] **Step 5: Construction sequencing.** Record the order of the Construction loop chosen in Q5 and Q6, and which per-unit stages each unit runs (from the execution plan's per-unit table, adjusted to the final units).
-- [ ] **Step 6: Validate.** Check that every component belongs to exactly one unit, every story to at least one unit, and every Tier 1 demo step to units built in the Tier 1 pass. Check that owner workloads are reasonably balanced, and that the unit boundaries respect the import rules.
+- [x] **Step 1: Define units.** Write `unit-of-work.md`. For each unit, give its purpose, its components (IDs from `components.md`), owner(s), tiers, public interfaces it provides, and its "done" definition.
+- [x] **Step 2: Code organization (greenfield).** Document in `unit-of-work.md` the directory layout, how each unit maps to `app/` paths, the `tests/` layout, the `eval/` suites per unit, and the branching and integration convention chosen in Q4.
+- [x] **Step 3: Dependencies.** Write `unit-of-work-dependency.md` with a unit dependency matrix, the build order, the integration contracts between units (models, functions, fakes), and the points where units integrate. Check that there are no cycles and that the dependencies agree with rules R1–R12.
+- [x] **Step 4: Story map.** Write `unit-of-work-story-map.md`, assigning every story (US-01–22, MS-01–03) to a primary unit, with any contributing units and the tier.
+- [x] **Step 5: Construction sequencing.** Record the order of the Construction loop chosen in Q5 and Q6, and which per-unit stages each unit runs (from the execution plan's per-unit table, adjusted to the final units).
+- [x] **Step 6: Validate.** Check that every component belongs to exactly one unit, every story to at least one unit, and every Tier 1 demo step to units built in the Tier 1 pass. Check that owner workloads are reasonably balanced, and that the unit boundaries respect the import rules.
 
 ---
 
@@ -47,7 +47,7 @@ C) **Four units, one per owner,** with Foundation components divided among them 
 
 X) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A) Six units. Keeping U1 (ingestion) and U2 (eligibility and solver) separate lets them run in parallel and keeps each unit small enough to review. Because the DATA owner would otherwise hold two large units, U1 gets a secondary owner from UX during the first week, since UX's UI work trails the service actions anyway.
 
 ### Question 2: Who builds the Foundation unit, and how? *(Team alignment)*
 Every other unit depends on U0's models, agent loop, database layer and service skeleton.
@@ -58,7 +58,7 @@ B) **One teammate builds all of U0** while the others start Functional Design fo
 
 X) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A) Together in about 1–2 days, each owner writing the Foundation pieces closest to their area, with one teammate integrating and reviewing.
 
 ### Question 3: How do units progress in parallel before their dependencies are finished? *(Dependencies)*
 For example, U3 (planner) needs U2's planning service, U4 needs U0's ownership checks, and U5 needs every service action.
@@ -74,7 +74,7 @@ B) **Strict sequence.** A unit starts only after the units it depends on are fin
 
 X) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A) Contract-first with fakes: a scripted fake `llm`, a fixture catalog of about 20 courses in the ingestion output format, and a stub planning service. This lets four people work in parallel over Thanksgiving and matches the rule that unit tests mock `app/llm.py`.
 
 ### Question 4: What branching and integration convention should units use? *(Code organization)*
 The README says each PR gets one teammate review, and merges happen at least every two days.
@@ -85,7 +85,7 @@ B) **One long-lived branch per unit,** merged when the unit is complete
 
 X) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A) Short-lived branches per unit slice, merged within about 2 days after one review and green `pytest`, `ruff` and `mypy`. Changes to `aidlc-docs/` are merged one at a time, and `audit.md` is append-only, so the record stays one continuous history.
 
 ### Question 5: How should the AI-DLC Construction loop run across units? *(Team alignment, process)*
 The AI-DLC rules complete each unit's design and code before moving to the next unit. With four people, units can run in parallel, but each one still passes its own approval gates.
@@ -96,7 +96,7 @@ B) **Strictly sequential:** U0, U1, U2, U3, U4, U5, one unit at a time, through 
 
 X) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A) Foundation first, then U1–U4 in parallel, each owner driving the coding agent on their own branch. Safeguards so the record stays consistent: each session starts by reading `aidlc-state.md`, approvals are team decisions made at the weekly Zoom meeting or in the group chat (and recorded as such), and `aidlc-docs/` changes follow the Q4 merge rule. `aidlc-state.md` tracks each unit's stage separately.
 
 ### Question 6: How do tiers interact with the per-unit loop? *(Technical considerations)*
 Several units hold both Tier 1 and Tier 2 work. For example, U2 has the Tier 1 solver and checker but the Tier 2 requirement categories, and U4 has Tier 1 cited Q&A but the Tier 2 query rewriting.
@@ -107,7 +107,7 @@ B) **One pass per unit** covering all of its tiers, with units ordered so that T
 
 X) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A) Two passes: each unit does its Tier 1 scope first so the end-to-end demo works early, then a second, lighter pass for Tier 2. The audit and state files record both passes.
 
 ### Question 7: Who builds the UI for each feature? *(Team alignment)*
 The UI pages (UI-1 to UI-3) sit in U5, but each story's UI checklist is closely tied to a specific owner's feature, for example the interpretation panel (PLAN) or the review table (MAT).
@@ -118,7 +118,7 @@ B) **Each feature owner builds the UI for their own stories** inside `app/ui/`, 
 
 X) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A) UX owns the Streamlit pages, and each feature owner's unit is done when its service action returns everything its stories' UI checklists need. UX reviews any PR that changes a service response model.
 
 ### Question 8: Who owns the evaluation suites? *(Team alignment)*
 The README says each owner contributes evaluation examples for their area.
@@ -129,4 +129,4 @@ B) **U5 owns the runner and every suite and its cases,** and other owners only r
 
 X) Other (please describe after [Answer]: tag below)
 
-[Answer]: 
+[Answer]: A) UX owns the runner, report format and shared harness; each unit owns its suite and its development and final cases, as part of its Tier 2 pass.

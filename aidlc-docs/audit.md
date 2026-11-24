@@ -287,3 +287,46 @@ We updated technical-environment.md §1 to add app/config.py, app/errors.py, app
 **Context**: INCEPTION - Units Generation, Part 1 Planning
 
 ---
+
+## Units Generation - Answers Received and Plan Approval Prompt
+**Timestamp**: 2026-11-24T12:41:23Z
+**User Input**: "Answered all 8 questions in unit-of-work-plan.md. Please continue."
+**Answers recorded in unit-of-work-plan.md (verbatim)**:
+- Question 1: A) Six units. Keeping U1 (ingestion) and U2 (eligibility and solver) separate lets them run in parallel and keeps each unit small enough to review. Because the DATA owner would otherwise hold two large units, U1 gets a secondary owner from UX during the first week, since UX's UI work trails the service actions anyway.
+- Question 2: A) Together in about 1–2 days, each owner writing the Foundation pieces closest to their area, with one teammate integrating and reviewing.
+- Question 3: A) Contract-first with fakes: a scripted fake `llm`, a fixture catalog of about 20 courses in the ingestion output format, and a stub planning service. This lets four people work in parallel over Thanksgiving and matches the rule that unit tests mock `app/llm.py`.
+- Question 4: A) Short-lived branches per unit slice, merged within about 2 days after one review and green `pytest`, `ruff` and `mypy`. Changes to `aidlc-docs/` are merged one at a time, and `audit.md` is append-only, so the record stays one continuous history.
+- Question 5: A) Foundation first, then U1–U4 in parallel, each owner driving the coding agent on their own branch. Safeguards so the record stays consistent: each session starts by reading `aidlc-state.md`, approvals are team decisions made at the weekly Zoom meeting or in the group chat (and recorded as such), and `aidlc-docs/` changes follow the Q4 merge rule. `aidlc-state.md` tracks each unit's stage separately.
+- Question 6: A) Two passes: each unit does its Tier 1 scope first so the end-to-end demo works early, then a second, lighter pass for Tier 2. The audit and state files record both passes.
+- Question 7: A) UX owns the Streamlit pages, and each feature owner's unit is done when its service action returns everything its stories' UI checklists need. UX reviews any PR that changes a service response model.
+- Question 8: A) UX owns the runner, report format and shared harness; each unit owns its suite and its development and final cases, as part of its Tier 2 pass.
+**AI Response**: "Analyzed all 8 answers (Step 7): no vague, contradictory or unruled combined answers, so no follow-up questions are needed. Q4's one-at-a-time merging of aidlc-docs changes and Q5's parallel per-unit sessions fit together. Q8 puts evaluation suites in each unit's Tier 2 pass, which fits the README's December 8-12 evaluation window. Approval prompt: 'Unit of work plan complete. Review the plan in aidlc-docs/inception/plans/unit-of-work-plan.md. Ready to proceed to generation?'"
+**Context**: INCEPTION - Units Generation, Step 9 plan approval gate
+
+---
+
+## Units Generation - Plan Approval
+**Timestamp**: 2026-11-24T12:42:03Z
+**AI Prompt**: "Unit of work plan complete. Review the plan in aidlc-docs/inception/plans/unit-of-work-plan.md. Ready to proceed to generation?"
+**User Response**: "Approved. Please proceed to generation."
+**Status**: Approved
+**Context**: INCEPTION - Units Generation, Part 1 complete; starting Part 2 (Generation)
+
+---
+
+## Units Generation - Generation Complete and Approval Prompt
+**Timestamp**: 2026-11-24T12:44:19Z
+**User Input**: (none; Part 2 executed after plan approval)
+**AI Response**: "Executed all 6 steps of unit-of-work-plan.md and marked each [x]. Created inception/application-design/unit-of-work.md (U0 Foundation, U1 Course Ingestion, U2 Eligibility and Solver, U3 Planner/Router/Memory, U4 Materials and Deadlines, U5 UI and Evaluation; Tier 1 and Tier 2 scope and done-criteria per unit; U0 split by owner; test fakes and fixture catalog; code organization following the technical-environment.md §1 layered app/ layout instead of the default src/{unit}/ pattern, with per-unit migration number ranges), unit-of-work-dependency.md (dependency matrix, build order, U0 contracts with their fakes, integration points IP-1 to IP-5 with target dates, per-unit stage table, per-unit state tracking), and unit-of-work-story-map.md (all 25 stories mapped: 14 Tier 1, 10 Tier 2, 1 Tier 3; demo steps to units; validation). Noted that T-1 search_courses moves to U3 per Q1:A although components.md lists DATA as owner, and that U4 (MAT) has the heaviest workload, with a mitigation. Added a per-unit Construction progress table to aidlc-state.md. Approval prompt: Request Changes / Approve & Continue to CONSTRUCTION PHASE."
+**Context**: INCEPTION - Units Generation, Step 16 approval gate
+
+---
+
+## Units Generation - Approval and Workflow Pause
+**Timestamp**: 2026-11-24T12:45:16Z
+**User Input**: "I approve the units of work. Stop here. Do not begin the Construction phase. Please mark Units Generation as complete in aidlc-state.md, log this approval in audit.md, and note that Construction will start in the final project."
+**Status**: Approved
+**AI Response**: "Units of work approved. Marked Units Generation complete in aidlc-state.md, recorded that the INCEPTION phase is complete, and added a Current Status section: Construction has not started and will start in the final project, beginning with U0 Foundation. Per user instruction, the workflow stops here and the Construction phase is not started."
+**Context**: INCEPTION phase complete; workflow paused before CONSTRUCTION
+
+---
