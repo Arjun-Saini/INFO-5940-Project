@@ -8,14 +8,14 @@ A student can ask for “two ML electives and no Friday classes,” compare sche
 
 | Full name | NetID | Main area |
 |---|---|---|
-| [Full name] | [netid] | Course data and schedule solver |
+| Arjun Saini | ars437 | Course data and schedule solver |
 | [Full name] | [netid] | Planner agent, router, and memory |
 | [Full name] | [netid] | Course materials RAG and deadlines |
 | [Full name] | [netid] | UI, tracing, and evaluation |
 
 | Project detail | Plan |
 |---|---|
-| Coding agent | [Team’s selected coding agent] |
+| Coding agent | Claude Code |
 | Methodology | AI-Driven Development Lifecycle (AI-DLC) v1.0.1 |
 | LLM provider | Ollama, running locally (agent: `qwen3:8b`; router and query rewriting: `llama3.2:3b`) |
 | Final deadline | December 16 |
@@ -178,7 +178,7 @@ The app will be available at `http://localhost:8501`. The `.env` file will be ex
 
 ## Collaboration plan
 
-We will meet one-three times a week. The main in-person meeting covers AI-DLC review gates, design decisions, and integration. We will regularly sync progress and share Thanksgiving and finals availability in advance.
+We will meet online over Zoom one to three times a week. The main weekly meeting covers AI-DLC review gates, design decisions, and integration; during Inception, the teammate driving the coding agent shares their screen so the whole team answers questions and approves each stage together. Between meetings, we will communicate in a group text chat to post progress, flag blockers, and schedule extra meetings, and we will share Thanksgiving and finals availability there in advance.
 
 All code and documents will live in one GitHub repository, with tasks tracked in GitHub Projects. During Inception, one teammate will drive the coding agent while the team works through questions and approvals together. During Construction, each teammate will own the area in the Team table and contribute its evaluation examples. Each pull request will receive one teammate review. We will merge changes at least every two days and run the shared demo as soon as the first components connect.
 
