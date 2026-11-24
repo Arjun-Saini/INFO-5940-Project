@@ -86,7 +86,7 @@ Every portability lever is configuration, not code or curated data.
 | `TOPIC_TAGS` | Fixed topic vocabulary (DEC-12). Default: `ml,ai,systems,theory,security,graphics,hci,pl,data` | In technical-environment.md |
 | `TERM_START` | Optional override for the derived week-one anchor (DEC-06) | In technical-environment.md |
 | `DERIVE_CONFIDENCE_THRESHOLD` | Minimum model score for a derived item (DEC-13). Default: `0.8` | In technical-environment.md |
-| `DEFAULT_CREDIT_RANGE` | Credit range used when the student gives none (DEC-21). Default: `12-18` | **New**: not yet in technical-environment.md `.env.example` |
+| `DEFAULT_CREDIT_RANGE` | Credit range used when the student gives none (DEC-21). Default: `12-18` | In technical-environment.md |
 
 ---
 

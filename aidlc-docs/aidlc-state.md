@@ -4,7 +4,7 @@
 - **Project Name**: CoursePilot
 - **Project Type**: Greenfield
 - **Start Date**: 2026-11-24T11:35:03Z
-- **Current Stage**: INCEPTION - User Stories (generated; awaiting approval)
+- **Current Stage**: INCEPTION - Workflow Planning (execution-plan.md written; awaiting approval)
 
 ## Workspace State
 - **Existing Code**: No (only documentation: README.md, vision.md, technical-environment.md, CLAUDE.md)
@@ -36,14 +36,18 @@
 - [x] Workspace Detection
 - [ ] Reverse Engineering (SKIPPED: greenfield)
 - [x] Requirements Analysis (approved 2026-11-24T12:09:38Z)
-- [ ] User Stories (generated: 4 personas, 22 user stories + 3 misuse stories; awaiting approval)
-- [ ] Workflow Planning
-- [ ] Application Design
-- [ ] Units Generation
+- [x] User Stories (approved 2026-11-24T12:24:23Z: 4 personas, 22 user stories + 3 misuse stories)
+- [ ] Workflow Planning (execution-plan.md written; awaiting approval)
+- [ ] Application Design - EXECUTE
+- [ ] Units Generation - EXECUTE
 
 ### 🟢 CONSTRUCTION PHASE
-- [ ] Per-unit design and code generation (TBD after Workflow Planning)
-- [ ] Build and Test
+- [ ] Functional Design - EXECUTE (per unit, units with business logic)
+- [ ] NFR Requirements - EXECUTE (minimal, once)
+- [ ] NFR Design - EXECUTE (per unit, security-critical units)
+- [ ] Infrastructure Design - SKIP (local Docker Compose fixed in technical-environment.md)
+- [ ] Code Generation - EXECUTE
+- [ ] Build and Test - EXECUTE
 
 ### 🟡 OPERATIONS PHASE
 - [ ] Operations (PLACEHOLDER)
