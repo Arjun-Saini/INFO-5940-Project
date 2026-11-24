@@ -214,3 +214,76 @@ Update the stories and the demo script to match, and change P2's representative 
 **Context**: INCEPTION - Workflow Planning, Step 9 approval gate
 
 ---
+
+## Workflow Planning - Approval
+**Timestamp**: 2026-11-24T12:27:58Z
+**AI Prompt**: "Ready to proceed with this plan?"
+**User Response**: "Approve & Continue. One small fix while you update the state: in the execution-plan diagram, Code Generation and Build and Test use the green "completed" style even though they are EXECUTE stages, so give them the orange EXECUTE style, and mark Workflow Planning as COMPLETED in the diagram."
+**Status**: Approved
+**AI Response**: "Changed execution-plan.md: WP node label set to COMPLETED; CG and BT given the orange conditional-EXECUTE style; text alternative and phase checklist updated to show Workflow Planning COMPLETED. Marked Workflow Planning complete in aidlc-state.md. Proceeding to Application Design."
+**Context**: Workflow plan approved: Application Design, Units Generation, Functional Design (per unit), NFR Requirements (minimal), NFR Design (per unit), Code Generation, Build and Test; Infrastructure Design skipped
+
+---
+
+## Application Design - Plan and Questions Issued
+**Timestamp**: 2026-11-24T12:28:53Z
+**User Input**: (none; continuing after Workflow Planning approval)
+**AI Response**: "Loaded inception/application-design.md. Created inception/plans/application-design-plan.md with a 7-step checklist (components, methods, services, dependencies, misuse cases, consolidated document, validation) and 8 questions: Q1 who runs the solver after the panel is confirmed; Q2 UI service facade beyond handle_message; Q3 session state persistence; Q4 checker independence; Q5 whether to commit the ingestion cache; Q6 agent loop structure; Q7 slow work in Streamlit; Q8 database repository layout. Awaiting answers (Step 7 gate)."
+**Context**: INCEPTION - Application Design, plan created
+
+---
+
+## Application Design - Answers Received and Follow-up Issued
+**Timestamp**: 2026-11-24T12:30:23Z
+**User Input**: "Answered all 8 questions in application-design-plan.md. Note that for Q1 we chose C instead of A, so chat refinements go through the agent loop and end in the same deterministic solve service. Please continue."
+**Answers recorded in application-design-plan.md (verbatim)**:
+- Question 1: C) Hybrid. Button actions ("Find schedules", pin, exclude) call the deterministic phase 2 service directly: eligibility checks, solver and checker in Python, then one model call to explain the results. Chat refinements ("swap out the 8am", "no classes before 9am") go through the planner's agent loop, which resolves the reference into structured constraint changes and then calls the same phase 2 service. This keeps one solving path for both entry points, while still letting the model interpret free-text refinements that A doesn't cover.
+- Question 2: A) A service facade in `app/service.py`: `handle_message` plus named action functions, each validated, traced and run through the same top-level error handler. The UI never imports agents, tools or `app/db/` directly.
+- Question 3: A) One validated JSON document per session (`jsonb`, with a schema version), loaded and saved whole once per request. Messages, events and their audit records, documents and traces stay in their own tables.
+- Question 4: A) Independent logic. The checker shares only the Pydantic data models with the solver and never imports solver code or helpers, enforced by a test or lint rule, so one bug can't get past both.
+- Question 5: A) Commit it. The raw export and the derived cache are generated automatically (no hand edits), so committing them keeps every teammate and the demo on identical rules, and the seed script works offline. Re-run ingestion only for a new term, model or prompt version.
+- Question 6: A) Data-driven: one `run_agent(spec: AgentSpec, …)` with an allowlisted tool registry per spec. The allowlist in the spec is also what enforces MS-02 (an agent can't call another agent's tools).
+- Question 7: A) Synchronous with progress feedback (`st.status` or a spinner with step updates). Simplest for a single local user, and the solver's time limit (NFR-PERF-03) bounds the wait.
+- Question 8: A) One repository module per aggregate, with typed functions returning Pydantic models and plain-SQL migrations run in order.
+**AI Response**: "Analyzed all 8 answers (Step 8). Q2 to Q8 are clear and consistent. Q1:C (hybrid) leaves the mechanism open: whether the refinement loop reaches phase 2 through a model-callable solve_schedule tool (FR-AGT-04 and FR-PLN-05 unchanged) or through a structured final output that the service applies (FR-AGT-04 and FR-PLN-05 would need amending). Added Follow-up 1 to application-design-plan.md §4. Not proceeding to generation until it is answered (Step 9)."
+**Context**: INCEPTION - Application Design, answer analysis
+
+---
+
+## Application Design - Follow-up Answer, Generation and Approval Prompt
+**Timestamp**: 2026-11-24T12:35:01Z
+**User Input**: "Answered Follow-up 1 with A. Please write the design documents."
+**Answer recorded (verbatim)**: "A) Keep `solve_schedule` as a model-callable tool whose input is a validated list of constraint changes, implemented by calling the same solve service the button uses. This is what we intended with Q1:C: one solving path, FR-AGT-04 and FR-PLN-05 unchanged, refinements visible in traces within the 8-call budget, and no raw solver inputs from the model, so MS-02 still holds."
+**AI Response**: "Generated inception/application-design/components.md (about 45 components in 7 layers, security-critical ones marked), component-methods.md (shared models plus signatures for the service facade, router, agent loop, agents, 7 tools, planning service, checker, validators, ingestion and Foundation), services.md (13 orchestration flows F1-F13, Tier 1 demo coverage, 7 misuse cases including new MC-04 hand-edited committed cache, MC-05 hostile API response, MC-06 .ics field injection, MC-07 untrusted HTML), component-dependency.md (import rules R1-R10, layer diagram, dependency matrix, communication patterns, Tier 1 data flow), and application-design.md (consolidated, with decisions AD-01 to AD-10, validation, and compliance). Added the app/models/ package (AD-09) to the code layout; deadline extraction runs when a review is first opened (AD-10). Fixed an internal inconsistency before presenting: the solve_schedule wrapper module is solve_tool.py, not solver.py, to avoid an import cycle. Checked Mermaid: 2 flowcharts, all nodes defined. No requirement changes needed. Security: compliant, no blocking findings. PBT Partial: compliant or N/A at this stage. Marked all 7 plan steps [x]. Approval prompt: Request Changes / Approve & Continue to Units Generation."
+**Context**: INCEPTION - Application Design, Step 11-12 approval gate
+
+---
+
+## Application Design - Change Request
+**Timestamp**: 2026-11-24T12:38:17Z
+**User Input**: "Request Changes on the application design:
+
+Phase 1 must not be able to solve. interpret currently runs with PLANNER_SPEC, which includes solve_schedule, so the model could produce schedules before the student confirms the interpretation panel. Give phase 1 its own AgentSpec (for example INTERPRET_SPEC) whose allowlist is only search_courses, and keep solve_schedule for the refinement spec.
+Ownership IDs must never come from the model. export_ics takes session_id and extract_deadlines takes document_id as model-supplied arguments. Take session_id only from the server-side AgentContext, and have every tool that receives a document, event or course ID verify it belongs to the current session (or active schedule) before acting, returning a ToolError otherwise. Add this to MS-02's design response and the dependency rules, and note it as a SECURITY-05/11 control.
+Fix the paragraph under the dependency matrix that first says the solve_schedule wrapper is in tools/solver.py; it should consistently say tools/solve_tool.py.
+We updated technical-environment.md §1 to add app/config.py, app/errors.py, app/embeddings.py, and app/models/ (AD-09). Please re-read it and update the validation note."
+**AI Response**: "(1) Replaced PLANNER_SPEC with INTERPRET_SPEC (allowlist: search_courses only) and REFINE_SPEC (search_courses, check_prereqs, check_requirements, solve_schedule); explain has no tools. Added AD-11 and rule R12 (a test asserts INTERPRET_SPEC's allowlist). (2) Added AgentContext (session_id, active_course_ids, completed_courses, reported_equivalents, interpretation), built server-side and passed to every tool as fn(args, ctx). export_ics now takes no model arguments. Added OW-1 app/tools/ownership.py (require_document, require_event, require_active_course, require_catalog_course and require_catalog_section), returning ToolError kinds forbidden and unknown_id, used by every tool and by the service actions open_deadline_review, update_event, set_anchor_override and upload_document. Repositories also filter documents and events by session_id. Interpretation note: catalog course and section IDs in planner tools are checked for existence in the ingested term rather than for session ownership, because catalog courses are shared, not owned by a session. Extended the same principle to student data: check_prereqs and check_requirements take completed courses and reported equivalents from ctx, not the model (the pure check_prereqs from technical-environment.md §6.2 is unchanged; a tool wrapper fills those fields). Updated MS-02's design response, added rule R11 and AD-12, and noted it as a SECURITY-05/11 control. (3) The component-dependency.md paragraph now says the wrapper is in tools/solve_tool.py, and tools/solver.py holds only the CP-SAT model. (4) Re-read technical-environment.md §1 at commit 832c5ce: it lists config.py, errors.py, embeddings.py and models/. Updated FN-9, AD-09 and the validation table. Regenerated application-design.md. Security: compliant, no blocking findings. Re-presented the approval prompt."
+**Context**: INCEPTION - Application Design, change request applied; awaiting approval
+
+---
+
+## Application Design - Approval
+**Timestamp**: 2026-11-24T12:39:07Z
+**User Input**: "Approve & Continue"
+**AI Response**: "Application design approved. Marked Application Design complete in aidlc-state.md. Loaded inception/units-generation.md and started Units Generation Part 1 (Planning)."
+**Context**: INCEPTION - Application Design complete
+
+---
+
+## Units Generation - Plan and Questions Issued
+**Timestamp**: 2026-11-24T12:39:59Z
+**User Input**: (none; continuing after Application Design approval)
+**AI Response**: "Created inception/plans/unit-of-work-plan.md with fixed starting points (single deployable app; units are modules), a 6-step generation checklist, and 8 questions covering every required category: Q1 unit split (story grouping and business domain), Q2 how Foundation is built (team alignment), Q3 contract-first fakes vs. strict sequence (dependencies), Q4 branching and integration (code organization), Q5 parallel vs. sequential per-unit AI-DLC loops (team and process), Q6 tier passes per unit (technical considerations), Q7 UI ownership (team alignment), Q8 evaluation suite ownership (team alignment). Awaiting answers (Step 6 gate)."
+**Context**: INCEPTION - Units Generation, Part 1 Planning
+
+---

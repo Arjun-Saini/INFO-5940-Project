@@ -4,7 +4,7 @@
 - **Project Name**: CoursePilot
 - **Project Type**: Greenfield
 - **Start Date**: 2026-11-24T11:35:03Z
-- **Current Stage**: INCEPTION - Workflow Planning (execution-plan.md written; awaiting approval)
+- **Current Stage**: INCEPTION - Units Generation, Part 1 Planning (awaiting answers in unit-of-work-plan.md)
 
 ## Workspace State
 - **Existing Code**: No (only documentation: README.md, vision.md, technical-environment.md, CLAUDE.md)
@@ -37,9 +37,9 @@
 - [ ] Reverse Engineering (SKIPPED: greenfield)
 - [x] Requirements Analysis (approved 2026-11-24T12:09:38Z)
 - [x] User Stories (approved 2026-11-24T12:24:23Z: 4 personas, 22 user stories + 3 misuse stories)
-- [ ] Workflow Planning (execution-plan.md written; awaiting approval)
-- [ ] Application Design - EXECUTE
-- [ ] Units Generation - EXECUTE
+- [x] Workflow Planning (approved; see inception/plans/execution-plan.md)
+- [x] Application Design (approved 2026-11-24T12:39:07Z)
+- [ ] Units Generation - EXECUTE (IN PROGRESS: Part 1 Planning)
 
 ### 🟢 CONSTRUCTION PHASE
 - [ ] Functional Design - EXECUTE (per unit, units with business logic)

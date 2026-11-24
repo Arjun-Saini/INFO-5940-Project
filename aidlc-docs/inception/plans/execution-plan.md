@@ -48,7 +48,7 @@ flowchart TD
         RE["Reverse Engineering<br/><b>SKIPPED</b>"]
         RA["Requirements Analysis<br/><b>COMPLETED</b>"]
         US["User Stories<br/><b>COMPLETED</b>"]
-        WP["Workflow Planning<br/><b>IN PROGRESS</b>"]
+        WP["Workflow Planning<br/><b>COMPLETED</b>"]
         AD["Application Design<br/><b>EXECUTE</b>"]
         UG["Units Generation<br/><b>EXECUTE</b>"]
     end
@@ -87,8 +87,8 @@ flowchart TD
     style RA fill:#4CAF50,stroke:#1B5E20,stroke-width:3px,color:#fff
     style US fill:#4CAF50,stroke:#1B5E20,stroke-width:3px,color:#fff
     style WP fill:#4CAF50,stroke:#1B5E20,stroke-width:3px,color:#fff
-    style CG fill:#4CAF50,stroke:#1B5E20,stroke-width:3px,color:#fff
-    style BT fill:#4CAF50,stroke:#1B5E20,stroke-width:3px,color:#fff
+    style CG fill:#FFA726,stroke:#E65100,stroke-width:3px,stroke-dasharray: 5 5,color:#000
+    style BT fill:#FFA726,stroke:#E65100,stroke-width:3px,stroke-dasharray: 5 5,color:#000
     style RE fill:#BDBDBD,stroke:#424242,stroke-width:2px,stroke-dasharray: 5 5,color:#000
     style ID fill:#BDBDBD,stroke:#424242,stroke-width:2px,stroke-dasharray: 5 5,color:#000
     style AD fill:#FFA726,stroke:#E65100,stroke-width:3px,stroke-dasharray: 5 5,color:#000
@@ -113,7 +113,7 @@ Phase 1: INCEPTION
 - Reverse Engineering ........ SKIPPED (greenfield)
 - Requirements Analysis ...... COMPLETED
 - User Stories ............... COMPLETED
-- Workflow Planning .......... IN PROGRESS
+- Workflow Planning .......... COMPLETED
 - Application Design ......... EXECUTE
 - Units Generation ........... EXECUTE
 
@@ -138,7 +138,7 @@ Phase 3: OPERATIONS
 - [x] Reverse Engineering (SKIPPED: greenfield)
 - [x] Requirements Analysis (COMPLETED)
 - [x] User Stories (COMPLETED)
-- [x] Workflow Planning (IN PROGRESS)
+- [x] Workflow Planning (COMPLETED)
 - [ ] **Application Design: EXECUTE** (standard depth)
   - **Rationale**: Every component is new: `service.handle_message`, the router, the planner and materials agents, the shared agent loop, 7 tools, the separate checker, `app/ingest/` (`CourseSource`, derivation, trust gate, cache), `app/db/` repositories, `SessionState` and tracing. Four owners need agreed method signatures and Pydantic contracts before they build in parallel. NFR-SEC-11 also requires misuse cases in the design documentation (MS-01 to MS-03 are the starting point).
 - [ ] **Units Generation: EXECUTE** (standard depth)
