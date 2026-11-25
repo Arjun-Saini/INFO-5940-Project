@@ -10,7 +10,7 @@ A student can ask for “two ML electives and no Friday classes,” compare sche
 |---|---|---|
 | Arjun Saini | ars437 | Course data and schedule solver |
 | Saifei Liao | sl3773 | Planner agent, router, and memory |
-| [Full name] | [netid] | Course materials RAG and deadlines |
+| Sai Kanchan Javalkar | skj36 | Course materials RAG and deadlines |
 | [Full name] | [netid] | UI, tracing, and evaluation |
 
 | Project detail | Plan |
